@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Docktopus — Provisionamento Docker</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">🐙</span>
+        <div>
+          <strong>Docktopus</strong>
+          <small>Dynamic Environments</small>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-view="dashboard">Ambientes</button>
+        <button class="nav-btn" data-view="wizard">Novo Ambiente</button>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="health-dot" class="dot"></span>
+        <span id="health-label">API</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1 id="view-title">Ambientes</h1>
+          <p id="view-subtitle">Gerencie stacks Docker isoladas</p>
+        </div>
+        <button id="btn-refresh" class="btn btn-ghost">Atualizar</button>
+      </header>
+
+      <section id="view-dashboard" class="view">
+        <div id="env-grid" class="env-grid"></div>
+        <div id="empty-state" class="empty hidden">
+          <h2>Nenhum ambiente ainda</h2>
+          <p>Crie sua primeira stack com o wizard de provisionamento.</p>
+          <button class="btn btn-primary" data-view="wizard">Criar ambiente</button>
+        </div>
+      </section>
+
+      <section id="view-wizard" class="view hidden">
+        <form id="wizard-form" class="wizard">
+          <div class="steps">
+            <span class="step active" data-step="1">1. Projeto</span>
+            <span class="step" data-step="2">2. Webserver</span>
+            <span class="step" data-step="3">3. Runtime</span>
+            <span class="step" data-step="4">4. Database</span>
+            <span class="step" data-step="5">5. Provisionar</span>
+          </div>
+
+          <div class="panel" data-panel="1">
+            <label>Nome do Projeto
+              <input name="name" required placeholder="Meu Site" minlength="2" />
+            </label>
+            <label>Subdomínio
+              <input name="domain" required placeholder="meusite.local" pattern="[a-z0-9.-]+" />
+            </label>
+          </div>
+
+          <div class="panel hidden" data-panel="2">
+            <div class="option-grid" data-group="webserver">
+              <label class="option"><input type="radio" name="webserver" value="nginx" checked /><span>Nginx</span></label>
+              <label class="option"><input type="radio" name="webserver" value="apache" /><span>Apache</span></label>
+              <label class="option"><input type="radio" name="webserver" value="none" /><span>Nenhuma / Standalone</span></label>
+            </div>
+          </div>
+
+          <div class="panel hidden" data-panel="3">
+            <div class="option-grid" data-group="runtime">
+              <label class="option"><input type="radio" name="runtime" value="php82" checked /><span>PHP 8.2</span></label>
+              <label class="option"><input type="radio" name="runtime" value="node20" /><span>Node.js 20</span></label>
+              <label class="option"><input type="radio" name="runtime" value="python311" /><span>Python 3.11</span></label>
+              <label class="option"><input type="radio" name="runtime" value="go" /><span>Go</span></label>
+            </div>
+          </div>
+
+          <div class="panel hidden" data-panel="4">
+            <div class="option-grid" data-group="database">
+              <label class="option"><input type="radio" name="database" value="mysql8" checked /><span>MySQL 8.0</span></label>
+              <label class="option"><input type="radio" name="database" value="postgres15" /><span>PostgreSQL 15</span></label>
+              <label class="option"><input type="radio" name="database" value="redis" /><span>Redis</span></label>
+              <label class="option"><input type="radio" name="database" value="none" /><span>Nenhum</span></label>
+            </div>
+          </div>
+
+          <div class="panel hidden" data-panel="5">
+            <div class="summary" id="summary"></div>
+            <p class="hint">O backend gera o <code>docker-compose.yml</code>, aplica labels Traefik e sobe a stack em background.</p>
+          </div>
+
+          <div class="wizard-actions">
+            <button type="button" class="btn btn-ghost" id="btn-prev" disabled>Voltar</button>
+            <button type="button" class="btn btn-primary" id="btn-next">Próximo</button>
+            <button type="submit" class="btn btn-accent hidden" id="btn-provision">Provisionar Ambiente agora</button>
+          </div>
+          <p id="wizard-error" class="error hidden"></p>
+        </form>
+      </section>
+
+      <section id="view-logs" class="view hidden">
+        <div class="logs-toolbar">
+          <button class="btn btn-ghost" data-view="dashboard">← Voltar</button>
+          <strong id="logs-title">Logs</strong>
+          <button class="btn btn-ghost" id="btn-refresh-logs">Recarregar</button>
+        </div>
+        <pre id="logs-output" class="logs-output"></pre>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

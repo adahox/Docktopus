@@ -1,0 +1,41 @@
+{
+  "name": "docktopus",
+  "version": "1.0.0",
+  "description": "Painel de Provisionamento Dinâmico de Ambientes Docker",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc && mkdir -p dist/templates && cp -r src/templates/* dist/templates/ && mkdir -p dist/public && cp -r src/public/* dist/public/",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "docker",
+    "provisioning",
+    "dockerode",
+    "traefik",
+    "paas"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dockerode": "^4.0.4",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "handlebars": "^4.7.8",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/dockerode": "^3.3.34",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
