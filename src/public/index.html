@@ -3,118 +3,378 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Docktopus — Provisionamento Docker</title>
+  <title>Docktopus — Provisionamento de Ambientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark">🐙</span>
+        <span class="brand-mark" aria-hidden="true"></span>
         <div>
           <strong>Docktopus</strong>
-          <small>Dynamic Environments</small>
+          <small>Environment Platform</small>
         </div>
       </div>
-      <nav>
-        <button class="nav-btn active" data-view="dashboard">Ambientes</button>
-        <button class="nav-btn" data-view="wizard">Novo Ambiente</button>
-      </nav>
+
+      <div class="nav-block">
+        <p class="nav-label">Operações</p>
+        <nav aria-label="Principal">
+          <button type="button" class="nav-btn active" data-view="dashboard">
+            <span class="nav-icon" aria-hidden="true"></span>
+            <span class="nav-text">
+              <strong>Ambientes</strong>
+              <small>Inventário e status</small>
+            </span>
+          </button>
+          <button type="button" class="nav-btn" data-view="wizard">
+            <span class="nav-icon nav-icon-plus" aria-hidden="true"></span>
+            <span class="nav-text">
+              <strong>Novo ambiente</strong>
+              <small>Wizard de stack</small>
+            </span>
+          </button>
+        </nav>
+      </div>
+
       <div class="sidebar-footer">
-        <span id="health-dot" class="dot"></span>
-        <span id="health-label">API</span>
+        <div class="status-chip">
+          <span id="health-dot" class="dot"></span>
+          <div>
+            <strong id="health-label">Verificando API…</strong>
+            <small>Docker Engine</small>
+          </div>
+        </div>
+        <p class="sidebar-meta">Docktopus v1.0</p>
       </div>
     </aside>
 
-    <main>
+    <div class="workspace">
       <header class="topbar">
-        <div>
+        <div class="topbar-copy">
+          <p class="eyebrow" id="view-eyebrow">Console</p>
           <h1 id="view-title">Ambientes</h1>
-          <p id="view-subtitle">Gerencie stacks Docker isoladas</p>
+          <p id="view-subtitle">Stacks Docker isoladas com roteamento automático</p>
         </div>
-        <button id="btn-refresh" class="btn btn-ghost">Atualizar</button>
+        <div class="topbar-actions">
+          <button type="button" id="btn-refresh" class="btn btn-ghost">Atualizar</button>
+          <button type="button" class="btn btn-primary" data-view="wizard">Provisionar</button>
+        </div>
       </header>
 
-      <section id="view-dashboard" class="view">
-        <div id="env-grid" class="env-grid"></div>
-        <div id="empty-state" class="empty hidden">
-          <h2>Nenhum ambiente ainda</h2>
-          <p>Crie sua primeira stack com o wizard de provisionamento.</p>
-          <button class="btn btn-primary" data-view="wizard">Criar ambiente</button>
-        </div>
-      </section>
-
-      <section id="view-wizard" class="view hidden">
-        <form id="wizard-form" class="wizard">
-          <div class="steps">
-            <span class="step active" data-step="1">1. Projeto</span>
-            <span class="step" data-step="2">2. Webserver</span>
-            <span class="step" data-step="3">3. Runtime</span>
-            <span class="step" data-step="4">4. Database</span>
-            <span class="step" data-step="5">5. Provisionar</span>
-          </div>
-
-          <div class="panel" data-panel="1">
-            <label>Nome do Projeto
-              <input name="name" required placeholder="Meu Site" minlength="2" />
-            </label>
-            <label>Subdomínio
-              <input name="domain" required placeholder="meusite.local" pattern="[a-z0-9.-]+" />
-            </label>
-          </div>
-
-          <div class="panel hidden" data-panel="2">
-            <div class="option-grid" data-group="webserver">
-              <label class="option"><input type="radio" name="webserver" value="nginx" checked /><span>Nginx</span></label>
-              <label class="option"><input type="radio" name="webserver" value="apache" /><span>Apache</span></label>
-              <label class="option"><input type="radio" name="webserver" value="none" /><span>Nenhuma / Standalone</span></label>
+      <main>
+        <section id="view-dashboard" class="view">
+          <div class="stats" id="stats-row" hidden>
+            <div class="stat">
+              <span class="stat-label">Total</span>
+              <strong id="stat-total">0</strong>
+            </div>
+            <div class="stat accent">
+              <span class="stat-label">Em execução</span>
+              <strong id="stat-running">0</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Parados</span>
+              <strong id="stat-stopped">0</strong>
             </div>
           </div>
 
-          <div class="panel hidden" data-panel="3">
-            <div class="option-grid" data-group="runtime">
-              <label class="option"><input type="radio" name="runtime" value="php82" checked /><span>PHP 8.2</span></label>
-              <label class="option"><input type="radio" name="runtime" value="node20" /><span>Node.js 20</span></label>
-              <label class="option"><input type="radio" name="runtime" value="python311" /><span>Python 3.11</span></label>
-              <label class="option"><input type="radio" name="runtime" value="go" /><span>Go</span></label>
+          <div class="panel-surface" id="env-table-wrap">
+            <div class="panel-surface-head">
+              <div>
+                <h2>Inventário</h2>
+                <p>Ambientes provisionados neste host</p>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="env-table" aria-label="Lista de ambientes">
+                <thead>
+                  <tr>
+                    <th>Ambiente</th>
+                    <th>URL pública</th>
+                    <th>Stack</th>
+                    <th>Status</th>
+                    <th class="th-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="env-tbody"></tbody>
+              </table>
             </div>
           </div>
 
-          <div class="panel hidden" data-panel="4">
-            <div class="option-grid" data-group="database">
-              <label class="option"><input type="radio" name="database" value="mysql8" checked /><span>MySQL 8.0</span></label>
-              <label class="option"><input type="radio" name="database" value="postgres15" /><span>PostgreSQL 15</span></label>
-              <label class="option"><input type="radio" name="database" value="redis" /><span>Redis</span></label>
-              <label class="option"><input type="radio" name="database" value="none" /><span>Nenhum</span></label>
+          <div id="empty-state" class="empty hidden">
+            <div class="empty-mark" aria-hidden="true"></div>
+            <h2>Nenhum ambiente provisionado</h2>
+            <p>Monte aplicações e bancos dinamicamente. O compose e o Traefik são configurados automaticamente.</p>
+            <button type="button" class="btn btn-primary" data-view="wizard">Criar primeiro ambiente</button>
+          </div>
+        </section>
+
+        <section id="view-wizard" class="view hidden">
+          <form id="wizard-form" class="wizard wizard-v2">
+            <div class="wizard-head">
+              <div class="wizard-head-copy">
+                <span class="wizard-badge" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                </span>
+                <div>
+                  <p class="eyebrow">Provisionamento</p>
+                  <h2>Novo ambiente</h2>
+                  <p class="wizard-lede">Defina o projeto, monte apps e bancos, revise e suba a stack.</p>
+                </div>
+              </div>
+              <span class="step-chip" id="step-chip">1 / 3</span>
             </div>
-          </div>
 
-          <div class="panel hidden" data-panel="5">
-            <div class="summary" id="summary"></div>
-            <p class="hint">O backend gera o <code>docker-compose.yml</code>, aplica labels Traefik e sobe a stack em background.</p>
-          </div>
+            <ol class="progress progress-v2" aria-label="Progresso do wizard">
+              <li class="progress-item active" data-step="1">
+                <span class="progress-ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                </span>
+                <span class="progress-meta"><span class="progress-num">01</span> Projeto</span>
+              </li>
+              <li class="progress-item" data-step="2">
+                <span class="progress-ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                </span>
+                <span class="progress-meta"><span class="progress-num">02</span> Serviços</span>
+              </li>
+              <li class="progress-item" data-step="3">
+                <span class="progress-ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
+                </span>
+                <span class="progress-meta"><span class="progress-num">03</span> Revisar</span>
+              </li>
+            </ol>
 
-          <div class="wizard-actions">
-            <button type="button" class="btn btn-ghost" id="btn-prev" disabled>Voltar</button>
-            <button type="button" class="btn btn-primary" id="btn-next">Próximo</button>
-            <button type="submit" class="btn btn-accent hidden" id="btn-provision">Provisionar Ambiente agora</button>
-          </div>
-          <p id="wizard-error" class="error hidden"></p>
-        </form>
-      </section>
+            <div class="wizard-body">
+              <div class="panel" data-panel="1">
+                <div class="panel-split">
+                  <div>
+                    <h3 class="panel-title">Identidade do projeto</h3>
+                    <p class="panel-desc">Nome interno e domínio base. Cada app pode ter o próprio subdomínio depois.</p>
+                    <div class="field-grid field-grid-stack">
+                      <label class="field">
+                        <span class="field-label">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                          Nome do projeto
+                        </span>
+                        <input name="name" id="wiz-name" required placeholder="Portal Institucional" minlength="2" autocomplete="off" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                          Domínio base
+                        </span>
+                        <input name="domain" id="wiz-domain" required placeholder="portal.localhost" pattern="[a-z0-9.-]+" autocomplete="off" />
+                        <small class="field-hint">Preenchido automaticamente pelo nome com <code>.localhost</code>. Pode editar se quiser.</small>
+                      </label>
+                    </div>
+                  </div>
+                  <aside class="wizard-preview" aria-live="polite">
+                    <p class="wizard-preview-label">Prévia</p>
+                    <div class="wizard-preview-card">
+                      <span class="wizard-preview-avatar" id="wiz-preview-avatar">DT</span>
+                      <div>
+                        <strong id="wiz-preview-name">Seu projeto</strong>
+                        <code id="wiz-preview-domain">portal.localhost</code>
+                      </div>
+                    </div>
+                    <ul class="wizard-preview-list">
+                      <li>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+                        Traefik roteia pelo Host
+                      </li>
+                      <li>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></svg>
+                        Compose gerado automaticamente
+                      </li>
+                      <li>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+                        Bancos com porta publicada
+                      </li>
+                    </ul>
+                  </aside>
+                </div>
+              </div>
 
-      <section id="view-logs" class="view hidden">
-        <div class="logs-toolbar">
-          <button class="btn btn-ghost" data-view="dashboard">← Voltar</button>
-          <strong id="logs-title">Logs</strong>
-          <button class="btn btn-ghost" id="btn-refresh-logs">Recarregar</button>
-        </div>
-        <pre id="logs-output" class="logs-output"></pre>
-      </section>
-    </main>
+              <div class="panel hidden" data-panel="2">
+                <div class="panel-intro">
+                  <h3 class="panel-title">Serviços da stack</h3>
+                  <p class="panel-desc">Monte a composição. Cada app ganha um subdomínio; bancos ficam na rede interna com porta no host.</p>
+                </div>
+
+                <div class="builder-section">
+                  <div class="builder-section-head">
+                    <div class="builder-title">
+                      <span class="builder-ico builder-ico-app" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                      </span>
+                      <div>
+                        <h4>Aplicações</h4>
+                        <small>Runtime + Nginx/Apache (gateway) ou Standalone</small>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-add-app">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                      Aplicação
+                    </button>
+                  </div>
+                  <div id="wiz-apps" class="service-list"></div>
+                </div>
+
+                <div class="builder-section">
+                  <div class="builder-section-head">
+                    <div class="builder-title">
+                      <span class="builder-ico builder-ico-db" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+                      </span>
+                      <div>
+                        <h4>Bancos de dados</h4>
+                        <small>MySQL, Postgres ou Redis</small>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-add-db">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                      Banco
+                    </button>
+                  </div>
+                  <div id="wiz-dbs" class="service-list"></div>
+                  <p class="field-hint">Host interno = id do serviço (ex. <code>mysql</code>). Porta externa é publicada automaticamente.</p>
+                </div>
+              </div>
+
+              <div class="panel hidden" data-panel="3">
+                <div class="panel-intro">
+                  <h3 class="panel-title">Revisão e provisionamento</h3>
+                  <p class="panel-desc">Confirme a stack. O backend gera o compose, registra as rotas no Traefik e executa <code>docker compose up -d</code>.</p>
+                </div>
+                <div class="summary-board" id="summary"></div>
+              </div>
+            </div>
+
+            <div class="wizard-actions">
+              <button type="button" class="btn btn-ghost" id="btn-prev" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                Voltar
+              </button>
+              <div class="wizard-actions-right">
+                <button type="button" class="btn btn-primary" id="btn-next">
+                  Continuar
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
+                <button type="submit" class="btn btn-accent hidden" id="btn-provision">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                  Provisionar ambiente
+                </button>
+              </div>
+            </div>
+            <p id="wizard-error" class="error hidden" role="alert"></p>
+          </form>
+        </section>
+
+        <section id="view-detail" class="view hidden">
+          <div id="detail-root" class="detail-root">
+            <p class="muted">Carregando…</p>
+          </div>
+        </section>
+
+        <section id="view-logs" class="view hidden">
+          <div class="logs-card">
+            <div class="logs-toolbar">
+              <button type="button" class="btn btn-ghost" data-view="dashboard">Voltar</button>
+              <div class="logs-heading">
+                <strong id="logs-title">Logs</strong>
+                <span class="muted" id="logs-meta">Últimas linhas do compose</span>
+              </div>
+              <button type="button" class="btn btn-ghost" id="btn-refresh-logs">Recarregar</button>
+            </div>
+            <pre id="logs-output" class="logs-output" tabindex="0"></pre>
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="modal-backdrop" data-action="close-modal"></div>
+    <div class="modal-panel modal-panel-wide">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Edição de stack</p>
+          <h2 id="edit-modal-title">Alterar ambiente</h2>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon" data-action="close-modal" title="Fechar" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6L6 18"></path><path d="M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <form id="edit-form" class="modal-body">
+        <input type="hidden" name="id" id="edit-id" />
+        <div class="field-grid">
+          <label class="field">Nome
+            <input name="name" id="edit-name" required minlength="2" />
+          </label>
+          <label class="field">Domínio base
+            <input name="domain" id="edit-domain" required pattern="[a-z0-9.-]+" />
+          </label>
+        </div>
+
+        <div class="builder-section">
+          <div class="builder-section-head">
+            <div class="builder-title">
+              <span class="builder-ico builder-ico-app" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+              </span>
+              <div>
+                <h4>Aplicações</h4>
+                <small>Runtime + Nginx/Apache (gateway) ou Standalone</small>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="edit-add-app">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              Aplicação
+            </button>
+          </div>
+          <div id="edit-apps" class="service-list"></div>
+        </div>
+
+        <div class="builder-section">
+          <div class="builder-section-head">
+            <div class="builder-title">
+              <span class="builder-ico builder-ico-db" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+              </span>
+              <div>
+                <h4>Bancos de dados</h4>
+                <small>MySQL, Postgres ou Redis</small>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="edit-add-db">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              Banco
+            </button>
+          </div>
+          <div id="edit-dbs" class="service-list"></div>
+        </div>
+
+        <p class="field-hint">Ao salvar, o Docktopus regenera o <code>docker-compose.yml</code> e recria os containers. Trocar engine/id de banco pode recriar o volume.</p>
+        <p id="edit-error" class="error hidden" role="alert"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-action="close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="edit-submit">Salvar e recriar stack</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/stack-logos.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

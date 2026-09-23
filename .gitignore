@@ -1,7 +1,10 @@
 node_modules/
 dist/
+web/.next/
 projects/*
 !projects/.gitkeep
+infra/traefik/dynamic/*.yml
+!infra/traefik/dynamic/.gitkeep
 .env
 *.log
 .DS_Store

@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background:
+    radial-gradient(900px 420px at 100% -10%, rgba(15, 118, 110, 0.08), transparent 60%),
+    linear-gradient(#e7eef6 1px, transparent 1px),
+    linear-gradient(90deg, #e7eef6 1px, transparent 1px),
+    #f4f7fb;
+  background-size: auto, 28px 28px, 28px 28px, auto;
+}
+
+.topo-line {
+  height: 2px;
+  flex: 1;
+  min-width: 28px;
+  background: linear-gradient(90deg, #9fd0c8, #b9cbe0);
+  border-radius: 999px;
+}
+
+.canvas-grid {
+  background-color: #f7f9fc;
+  background-image: radial-gradient(#d5e0ec 1.1px, transparent 1.1px);
+  background-size: 22px 22px;
+}

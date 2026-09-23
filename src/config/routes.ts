@@ -9,10 +9,15 @@ export function createEnvironmentRoutes(dockerService: DockerService): Router {
   router.get("/", (req, res) => void controller.list(req, res));
   router.post("/", (req, res) => void controller.create(req, res));
   router.get("/:id", (req, res) => void controller.get(req, res));
+  router.put("/:id", (req, res) => void controller.update(req, res));
+  router.patch("/:id", (req, res) => void controller.update(req, res));
+  router.delete("/:id", (req, res) => void controller.remove(req, res));
   router.post("/:id/start", (req, res) => void controller.start(req, res));
   router.post("/:id/stop", (req, res) => void controller.stop(req, res));
   router.get("/:id/logs", (req, res) => void controller.logs(req, res));
   router.get("/:id/logs/stream", (req, res) => void controller.streamLogs(req, res));
+  router.get("/:id/gateways/:gatewayId/conf", (req, res) => void controller.gatewayConf(req, res));
+  router.put("/:id/gateways/:gatewayId/conf", (req, res) => void controller.saveGatewayConf(req, res));
 
   return router;
 }

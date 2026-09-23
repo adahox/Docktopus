@@ -1,0 +1,28 @@
+# Traefik reverse proxy for Docktopus environments
+# Usage: npm run proxy:up
+# Rotas dinâmicas em ./dynamic (escritas pelo DockerService).
+
+services:
+  traefik:
+    image: traefik:v3.5
+    container_name: docktopus-traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "${TRAEFIK_HTTP_PORT:-80}:80"
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - proxy
+    labels:
+      - "docktopus.role=proxy"
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-proxy}
+    external: true

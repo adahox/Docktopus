@@ -2,143 +2,280 @@
 # Project: {{projectName}} | Domain: {{domain}} | ID: {{projectId}}
 
 services:
-{{#if hasWebserver}}
-  web:
-    image: {{webserverImage}}
-    container_name: {{projectId}}-web
+{{#each webservers}}
+  {{this.id}}:
+    image: {{this.webserverImage}}
+    container_name: {{../projectId}}-{{this.id}}
     restart: unless-stopped
     volumes:
-      - ./app:/usr/share/nginx/html:ro
-{{#if isNginx}}
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+{{#if this.isNginx}}
+      - ./{{this.nginxConfFile}}:/etc/nginx/conf.d/default.conf:ro
 {{/if}}
-{{#if isApache}}
-      - ./app:/var/www/html:ro
+{{#if this.isApache}}
+      - ./{{this.apacheConfFile}}:/usr/local/apache2/conf/extra/httpd-vhosts.conf:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "sed -i -e 's/^#\\(LoadModule .*mod_proxy.so\\)/\\1/' -e 's/^#\\(LoadModule .*mod_proxy_http.so\\)/\\1/' -e 's/^#\\(LoadModule .*mod_headers.so\\)/\\1/' -e 's/^#\\(Include conf\\/extra\\/httpd-vhosts.conf\\)/\\1/' /usr/local/apache2/conf/httpd.conf && exec httpd-foreground",
+      ]
 {{/if}}
+{{#if this.hasDepends}}
     depends_on:
-      - app
-    networks:
-      - proxy
-      - internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
-      - "traefik.http.routers.{{projectId}}.rule=Host(`{{domain}}`)"
-      - "traefik.http.routers.{{projectId}}.entrypoints=web"
-      - "traefik.http.services.{{projectId}}.loadbalancer.server.port=80"
-      - "docktopus.project.id={{projectId}}"
-      - "docktopus.project.name={{projectName}}"
+{{#each this.depends}}
+      - {{this}}
+{{/each}}
 {{/if}}
+    networks:
+{{#each this.networks}}
+      - {{this}}
+{{/each}}
+    labels:
+      - "traefik.enable=false"
+      - "docktopus.project.id={{../projectId}}"
+      - "docktopus.project.name={{../projectName}}"
+      - "docktopus.role=webserver"
+      - "docktopus.web.id={{this.id}}"
 
-  app:
-    image: {{runtimeImage}}
-    container_name: {{projectId}}-app
+{{/each}}
+{{#each applications}}
+  {{this.id}}:
+{{#if this.isImageBuild}}
+    build:
+      context: ./apps/{{this.id}}
+      dockerfile: Dockerfile
+{{else}}
+{{#if this.fromProject}}
+    extends:
+      file: ./apps/{{this.id}}/{{this.composeFile}}
+      service: {{this.composeService}}
+{{else}}
+    image: {{this.runtimeImage}}
+{{/if}}
+{{/if}}
+    container_name: {{../projectId}}-{{this.id}}
     restart: unless-stopped
+{{#unless this.fromProject}}
     working_dir: /app
     volumes:
-      - ./app:/app
-{{#if hasEnvVars}}
+      - ./apps/{{this.id}}:/app
+{{/unless}}
+{{#if this.hasEnvVars}}
     environment:
-{{#each envVars}}
+{{#each this.envVars}}
       - {{this.key}}={{this.value}}
 {{/each}}
 {{/if}}
-{{#if hasDatabase}}
+{{#if this.hasDatabases}}
     depends_on:
-      - db
+{{#each this.dbDepends}}
+      - {{this}}
+{{/each}}
+{{/if}}
+{{#if this.hostPort}}
+    ports:
+      - "{{this.hostPort}}:{{this.runtimePort}}"
 {{/if}}
     networks:
-{{#unless hasWebserver}}
-      - proxy
-{{/unless}}
-      - internal
-{{#unless hasWebserver}}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
-      - "traefik.http.routers.{{projectId}}.rule=Host(`{{domain}}`)"
-      - "traefik.http.routers.{{projectId}}.entrypoints=web"
-      - "traefik.http.services.{{projectId}}.loadbalancer.server.port={{runtimePort}}"
-      - "docktopus.project.id={{projectId}}"
-      - "docktopus.project.name={{projectName}}"
-{{else}}
+{{#each this.networks}}
+      - {{this}}
+{{/each}}
     labels:
       - "traefik.enable=false"
-      - "docktopus.project.id={{projectId}}"
-      - "docktopus.project.name={{projectName}}"
-{{/unless}}
-{{#if isNode}}
-    command: ["sh", "-c", "if [ -f package.json ]; then npm install && npm start; else node -e \"require('http').createServer((q,s)=>s.end('Node ready')).listen({{runtimePort}},'0.0.0.0')\"; fi"]
+      - "docktopus.project.id={{../projectId}}"
+      - "docktopus.project.name={{../projectName}}"
+      - "docktopus.app.id={{this.id}}"
+      - "docktopus.role=application"
+{{#if this.isNode}}
+    command: ["sh", "-c", "npm install -g pm2 && if [ -f package.json ]; then npm install; if [ -f ecosystem.config.js ]; then exec pm2-runtime start ecosystem.config.js; elif [ -f ecosystem.config.cjs ]; then exec pm2-runtime start ecosystem.config.cjs; else exec pm2-runtime start npm --name app -- start; fi; else printf '%s\\n' 'const http=require(\"http\");http.createServer((q,s)=>s.end(\"Node ready\")).listen(process.env.PORT||{{this.runtimePort}},\"0.0.0.0\")' > /tmp/docktopus-node.js && exec pm2-runtime start /tmp/docktopus-node.js --name app; fi"]
     expose:
-      - "{{runtimePort}}"
+      - "{{this.runtimePort}}"
 {{/if}}
-{{#if isPhp}}
-    command: ["php", "-S", "0.0.0.0:{{runtimePort}}", "-t", "/app"]
+{{#if this.isNodeFramework}}
+    command: ["sh", "/opt/docktopus/node-up.sh"]
     expose:
-      - "{{runtimePort}}"
+      - "{{this.runtimePort}}"
 {{/if}}
-{{#if isPython}}
-    command: ["sh", "-c", "if [ -f requirements.txt ]; then pip install -r requirements.txt; fi; python -m http.server {{runtimePort}} --bind 0.0.0.0"]
+{{#if this.isLaravel}}
+    command: ["sh", "/opt/docktopus/laravel-up.sh"]
     expose:
-      - "{{runtimePort}}"
+      - "{{this.runtimePort}}"
+{{else}}
+{{#if this.isPhp}}
+    command: ["php", "-S", "0.0.0.0:{{this.runtimePort}}", "-t", "/app"]
+    expose:
+      - "{{this.runtimePort}}"
 {{/if}}
-{{#if isGo}}
-    command: ["sh", "-c", "if [ -f go.mod ]; then go run .; else printf '%s\\n' 'package main' 'import \"net/http\"' 'func main() { http.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(\"Go runtime ready\")) }); http.ListenAndServe(\":{{runtimePort}}\", nil) }' > main.go && go run main.go; fi"]
+{{/if}}
+{{#if this.isDjango}}
+    command: ["sh", "/opt/docktopus/django-up.sh"]
     expose:
-      - "{{runtimePort}}"
+      - "{{this.runtimePort}}"
+{{/if}}
+{{#if this.isPython}}
+    command: ["sh", "-c", "if [ -f requirements.txt ]; then pip install -r requirements.txt; fi; python -m http.server {{this.runtimePort}} --bind 0.0.0.0"]
+    expose:
+      - "{{this.runtimePort}}"
+{{/if}}
+{{#if this.isGo}}
+    command: ["sh", "-c", "if [ -f go.mod ]; then go run .; else printf '%s\\n' 'package main' 'import \"net/http\"' 'func main() { http.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(\"Go runtime ready\")) }); http.ListenAndServe(\":{{this.runtimePort}}\", nil) }' > main.go && go run main.go; fi"]
+    expose:
+      - "{{this.runtimePort}}"
+{{/if}}
+{{#if this.fromProject}}
+    expose:
+      - "{{this.runtimePort}}"
 {{/if}}
 
-{{#if hasDatabase}}
-  db:
-    image: {{databaseImage}}
-    container_name: {{projectId}}-db
+{{#if this.hasSsh}}
+  {{this.sshServiceId}}:
+    image: lscr.io/linuxserver/openssh-server:latest
+    container_name: {{../projectId}}-{{this.sshServiceId}}
     restart: unless-stopped
-{{#if isMysql}}
     environment:
-      MYSQL_ROOT_PASSWORD: {{dbRootPassword}}
-      MYSQL_DATABASE: {{dbName}}
-      MYSQL_USER: {{dbUser}}
-      MYSQL_PASSWORD: {{dbPassword}}
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Etc/UTC
+      PASSWORD_ACCESS: "true"
+      USER_NAME: "{{this.sshUser}}"
+      USER_PASSWORD: "{{this.sshPassword}}"
     volumes:
-      - db_data:/var/lib/mysql
+      - ./apps/{{this.id}}:/config/workspace
+      - ./ssh/{{this.id}}/authorized_keys:/config/.ssh/authorized_keys:ro
+{{#if this.collectSshLogs}}
+      - ./fail2ban/logs/{{this.id}}:/config/logs
+{{/if}}
+    ports:
+      - "{{this.sshHostPort}}:2222"
+    networks:
+{{#each this.sshNetworks}}
+      - {{this}}
+{{/each}}
+    labels:
+      - "traefik.enable=false"
+      - "docktopus.project.id={{../projectId}}"
+      - "docktopus.project.name={{../projectName}}"
+      - "docktopus.app.id={{this.id}}"
+      - "docktopus.role=ssh"
+{{/if}}
+
+{{/each}}
+{{#each databases}}
+  {{this.id}}:
+    image: {{this.databaseImage}}
+    container_name: {{../projectId}}-{{this.id}}
+    restart: unless-stopped
+{{#if this.isMysql}}
+    environment:
+      MYSQL_ROOT_PASSWORD: {{this.dbRootPassword}}
+      MYSQL_DATABASE: {{this.dbName}}
+      MYSQL_USER: {{this.dbUser}}
+      MYSQL_PASSWORD: {{this.dbPassword}}
+    volumes:
+      - {{this.volumeName}}:/var/lib/mysql
+    ports:
+      - "{{this.hostPort}}:3306"
     expose:
       - "3306"
+    command: ["--default-authentication-plugin=mysql_native_password"]
 {{/if}}
-{{#if isPostgres}}
+{{#if this.isPostgres}}
     environment:
-      POSTGRES_DB: {{dbName}}
-      POSTGRES_USER: {{dbUser}}
-      POSTGRES_PASSWORD: {{dbPassword}}
+      POSTGRES_DB: {{this.dbName}}
+      POSTGRES_USER: {{this.dbUser}}
+      POSTGRES_PASSWORD: {{this.dbPassword}}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - {{this.volumeName}}:/var/lib/postgresql/data
+    ports:
+      - "{{this.hostPort}}:5432"
     expose:
       - "5432"
 {{/if}}
-{{#if isRedis}}
+{{#if this.isRedis}}
     volumes:
-      - db_data:/data
+      - {{this.volumeName}}:/data
+    ports:
+      - "{{this.hostPort}}:6379"
     expose:
       - "6379"
     command: ["redis-server", "--appendonly", "yes"]
 {{/if}}
+{{#if this.isMongo}}
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: {{this.dbUser}}
+      MONGO_INITDB_ROOT_PASSWORD: {{this.dbPassword}}
+      MONGO_INITDB_DATABASE: {{this.dbName}}
+    volumes:
+      - {{this.volumeName}}:/data/db
+    ports:
+      - "{{this.hostPort}}:27017"
+    expose:
+      - "27017"
+{{/if}}
+{{#if this.isRabbit}}
+    environment:
+      RABBITMQ_DEFAULT_USER: {{this.dbUser}}
+      RABBITMQ_DEFAULT_PASS: {{this.dbPassword}}
+    volumes:
+      - {{this.volumeName}}:/var/lib/rabbitmq
+    ports:
+      - "{{this.hostPort}}:5672"
+    expose:
+      - "5672"
+      - "15672"
+{{/if}}
     networks:
-      - internal
+{{#each this.networks}}
+      - {{this}}
+{{/each}}
+    labels:
+      - "traefik.enable=false"
+      - "docktopus.project.id={{../projectId}}"
+      - "docktopus.role=database"
+      - "docktopus.db.id={{this.id}}"
+
+{{/each}}
+{{#if fail2ban.enabled}}
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: {{projectId}}-fail2ban
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TZ: Etc/UTC
+      F2B_LOG_LEVEL: INFO
+      F2B_LOG_TARGET: /data/fail2ban.log
+    volumes:
+      - ./fail2ban/data:/data
+      - ./fail2ban/logs:/remotelogs:ro
     labels:
       - "traefik.enable=false"
       - "docktopus.project.id={{projectId}}"
-      - "docktopus.role=database"
-{{/if}}
+      - "docktopus.project.name={{projectName}}"
+      - "docktopus.role=fail2ban"
 
+{{/if}}
 networks:
   proxy:
     external: true
     name: {{proxyNetwork}}
-  internal:
+{{#each extraNetworks}}
+  {{this.name}}:
+    name: {{../projectId}}-{{this.name}}
+    {{#if this.external}}
+    external: true
+    {{else}}
     driver: bridge
-    name: {{projectId}}-internal
+    {{/if}}
+{{/each}}
 
-{{#if hasDatabase}}
+{{#if hasDatabases}}
 volumes:
-  db_data:
-    name: {{projectId}}-db-data
+{{#each databases}}
+  {{this.volumeName}}:
+    name: {{../projectId}}-{{this.id}}-data
+{{/each}}
 {{/if}}

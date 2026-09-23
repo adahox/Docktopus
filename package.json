@@ -7,7 +7,12 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc && mkdir -p dist/templates && cp -r src/templates/* dist/templates/ && mkdir -p dist/public && cp -r src/public/* dist/public/",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "proxy:up": "docker network inspect \"${PROXY_NETWORK:-proxy}\" >/dev/null 2>&1 || docker network create \"${PROXY_NETWORK:-proxy}\"; docker compose --env-file .env -f infra/traefik/docker-compose.yml up -d",
+    "proxy:down": "docker compose --env-file .env -f infra/traefik/docker-compose.yml down",
+    "proxy:logs": "docker compose --env-file .env -f infra/traefik/docker-compose.yml logs -f traefik",
+    "stack:up": "docker compose --env-file .env -f infra/docktopus/docker-compose.yml up -d --build",
+    "stack:down": "docker compose --env-file .env -f infra/docktopus/docker-compose.yml down"
   },
   "keywords": [
     "docker",
@@ -24,7 +29,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "handlebars": "^4.7.8",
-    "uuid": "^11.0.5"
+    "uuid": "^11.0.5",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -32,6 +38,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   },

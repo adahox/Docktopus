@@ -1,0 +1,21 @@
+# Static Traefik config — file provider (rotas geradas pelo Docktopus)
+# O provider Docker fica desligado: Engines recentes (API min 1.40+)
+# quebram o client embutido do Traefik (API 1.24).
+
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+log:
+  level: INFO
+
+accessLog: {}

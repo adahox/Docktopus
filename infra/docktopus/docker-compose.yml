@@ -1,0 +1,131 @@
+# Docktopus como serviço.
+# O socket do host fica só no proxy, com uma lista curta de operações.
+# A API fala com ele por TCP interno e roda sem capabilities, sem socket e sem porta publicada.
+# O navegador só alcança o painel Next.
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      INFO: 1
+      PING: 1
+      VERSION: 1
+      EVENTS: 1
+      POST: 1
+      DELETE: 1
+      DISTRIBUTION: 1
+      EXEC: 0
+      SWARM: 0
+      SECRETS: 0
+      CONFIGS: 0
+      PLUGINS: 0
+      SYSTEM: 0
+      BUILD: 1
+      COMMIT: 0
+      AUTH: 0
+      NODES: 0
+      SERVICES: 0
+      TASKS: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  bootstrap:
+    image: alpine:3.20
+    user: "0:0"
+    restart: "no"
+    environment:
+      HOST_PROJECTS_ROOT: ${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects}
+    volumes:
+      - ${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects}:${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects}
+      - ../traefik/dynamic:/var/lib/docktopus/traefik
+    command:
+      - sh
+      - -c
+      - mkdir -p ${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects} /var/lib/docktopus/traefik && chown -R 1000:1000 ${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects} /var/lib/docktopus/traefik
+    networks:
+      - internal
+
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DOCKER_HOST: tcp://socket-proxy:2375
+      DOCKER_BUILDKIT: "0"
+      COMPOSE_BAKE: "false"
+      DOCKTOPUS_API_TOKEN: ${DOCKTOPUS_API_TOKEN:?defina DOCKTOPUS_API_TOKEN}
+      PROJECTS_ROOT: ${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects}
+      TRAEFIK_DYNAMIC_DIR: /var/lib/docktopus/traefik
+      PROXY_NETWORK: ${PROXY_NETWORK:-proxy}
+      TRAEFIK_HTTP_PORT: ${TRAEFIK_HTTP_PORT:-80}
+      PUBLIC_SCHEME: ${PUBLIC_SCHEME:-http}
+    volumes:
+      # Mesmo caminho no host e no container: o daemon resolve os bind mounts dos ambientes nesse path.
+      - ${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects}:${HOST_PROJECTS_ROOT:-/var/lib/docktopus/projects}
+      - ../traefik/dynamic:/var/lib/docktopus/traefik
+    networks:
+      - internal
+    depends_on:
+      socket-proxy:
+        condition: service_started
+      bootstrap:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: ../../web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DOCKTOPUS_API_URL: http://api:3000
+      DOCKTOPUS_API_TOKEN: ${DOCKTOPUS_API_TOKEN:?defina DOCKTOPUS_API_TOKEN}
+      DOCKTOPUS_UI_PASSWORD: ${DOCKTOPUS_UI_PASSWORD:?defina DOCKTOPUS_UI_PASSWORD}
+      DOCKTOPUS_SESSION_SECRET: ${DOCKTOPUS_SESSION_SECRET:?defina DOCKTOPUS_SESSION_SECRET}
+      DOCKTOPUS_COOKIE_SECURE: ${DOCKTOPUS_COOKIE_SECURE:-false}
+    ports:
+      - "127.0.0.1:${DOCKTOPUS_WEB_PORT:-3001}:3001"
+    networks:
+      - internal
+      - proxy
+    depends_on:
+      - api
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PROXY_NETWORK:-proxy}
+      - traefik.http.routers.docktopus.rule=Host(`${DOCKTOPUS_HOST:-docktopus.localhost}`)
+      - traefik.http.routers.docktopus.entrypoints=web
+      - traefik.http.services.docktopus.loadbalancer.server.port=3001
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  internal:
+    internal: true
+  proxy:
+    name: ${PROXY_NETWORK:-proxy}
+    external: true
